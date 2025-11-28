@@ -41,7 +41,7 @@ sed -i '/Detected Linux distribution/a DIST="Ubuntu"' util/install.sh
 
 ```bash
 # Clone this repository
-git clone <YOUR_REPO_URL>
+git clone https://github.com/mohammedmokhtar2/SDN-System.git
 cd sdn_project
 
 # Install dependencies
