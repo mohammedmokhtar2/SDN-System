@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SDN Traffic Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: sans-serif; background-color: #f4f4f9; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        .status-box { text-align: center; margin-bottom: 20px; padding: 10px; border-radius: 5px; color: white; font-weight: bold; }
+        .normal { background-color: #28a745; }
+        .congested { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SDN Controller Live Monitor</h1>
+        
+        <div id="status" class="status-box normal">System Status: NORMAL</div>
+        
+        <canvas id="trafficChart"></canvas>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('trafficChart').getContext('2d');
+        const trafficChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'S2 -> S3 Traffic (Bytes)',
+                    data: [],
+                    borderColor: '#007bff',
+                    borderWidth: 2,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+
+        function fetchData() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    // Find traffic for Switch 2 (00...02), Port 3
+                    let bytes = 0;
+                    // Need to find the key ending in '02'
+                    for (const [dpid, ports] of Object.entries(data)) {
+                        if (dpid.endsWith('02') && ports['3']) {
+                            bytes = ports['3'];
+                        }
+                    }
+
+                    // Update Chart
+                    const now = new Date().toLocaleTimeString();
+                    trafficChart.data.labels.push(now);
+                    trafficChart.data.datasets[0].data.push(bytes);
+
+                    // Keep chart moving (only show last 20 seconds)
+                    if (trafficChart.data.labels.length > 10) {
+                        trafficChart.data.labels.shift();
+                        trafficChart.data.datasets[0].data.shift();
+                    }
+                    trafficChart.update();
+
+                    // Update Status Box
+                    const statusDiv = document.getElementById('status');
+                    // If bytes jump significantly (simulation logic), show Alert
+                    // Note: Since 'bytes' is a total counter, we'd normally calculate rate.
+                    // For simplicity, if bytes are huge, we assume heavy load.
+                    if (bytes > 5000000) { 
+                        statusDiv.innerText = "System Status: CONGESTION DETECTED (Rerouting...)";
+                        statusDiv.className = "status-box congested";
+                    } else {
+                        statusDiv.innerText = "System Status: NORMAL";
+                        statusDiv.className = "status-box normal";
+                    }
+                });
+        }
+
+        // Refresh every 2 seconds
+        setInterval(fetchData, 2000);
+    </script>
+</body>
+</html>
